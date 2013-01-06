@@ -1,0 +1,13 @@
+body {
+    margin:0px;
+    padding:0px;
+    background-color: black;
+}
+/*
+ * ID: game
+ * the board that contains the game
+ */
+#game {
+    display: block;
+    margin: auto;
+}
