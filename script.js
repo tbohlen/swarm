@@ -100,6 +100,7 @@ function Player(x, y, number) {
     this.drawIndex = -1;
     this.logicIndex = -1;
     this.system = new PlayerSystem(this.x, this.y, number);
+    this.radius = 10;
 }
 
 /*
@@ -127,7 +128,7 @@ Player.prototype.show = function(game) {
  */
 Player.prototype.draw = function(game) {
     game.context.fillStyle = "rgb(0, 200, 0)";
-    drawCircle(this.centerX, this.centerY, this.radius, game.context);
+    drawCircle(this.x, this.y, this.radius, game.context);
     game.context.fill();
     this.age++;
 };
@@ -143,6 +144,22 @@ Player.prototype.draw = function(game) {
  */
 Player.prototype.doLogic = function(game) {
     // does nothing at the moment
+    if(this.left) {
+        this.system.x -= 1;
+        this.x -= 1;
+    }
+    if (this.right) {
+        this.system.x += 1;
+        this.x += 1;
+    }
+    if (this.down) {
+        this.system.y += 1;
+        this.y += 1;
+    }
+    if (this.up) {
+        this.system.y -= 1;
+        this.y -= 1;
+    }
 };
 
 
@@ -242,8 +259,12 @@ $(document).ready(function() {
         game.resize();
 
         // create the player
-        game.player = new Player(400, 200, 500);
-        game.player.show(game);
+        game.playerOne = new Player(400, 200, 200, [200, 0, 0]);
+        game.playerOne.show(game);
+
+        // create the second player
+        //game.playerTwo = new Player(440, 200, 200, [0, 200, 0]);
+
 
         // start the loops
         drawLoopId = window.setInterval(drawLoop, DRAW_LOOP_TIME, game);
@@ -259,20 +280,44 @@ $(document).ready(function() {
             game.mouseY = ev.pageY - game.offsetY;
         });
 
-        $(document).on('keypress', function(ev) {
+        $(document).on('keydown', function(ev) {
             // up, left, right, down for moving
-            if (ev.keycode === 37) {
+            if (ev.keyCode === 37) {
                 // move left
+                window.game.playerOne.left = true;
             }
-            if (ef.keycode === 38) {
+            if (ev.keyCode === 38) {
                 // move up
+                window.game.playerOne.up = true;
             }
-            if (ef.keycode === 39) {
+            if (ev.keyCode === 39) {
                 // move right
+                window.game.playerOne.right = true;
             }
-            if (ef.keycode === 40) {
+            if (ev.keyCode === 40) {
                 // move down
+                window.game.playerOne.down = true;
             }
-        })
+        });
+
+        $(document).on('keyup', function(ev) {
+            // up, left, right, down for moving
+            if (ev.keyCode === 37) {
+                // move left
+                window.game.playerOne.left = false;
+            }
+            if (ev.keyCode === 38) {
+                // move up
+                window.game.playerOne.up = false;
+            }
+            if (ev.keyCode === 39) {
+                // move right
+                window.game.playerOne.right = false;
+            }
+            if (ev.keyCode === 40) {
+                // move down
+                window.game.playerOne.down = false;
+            }
+        });
     });
 });

@@ -343,12 +343,12 @@ ColorParticle.prototype.draw = function(game) {
 function PlayerSystem(x, y, number) {
     ParticleSystem.call(this, x, y);
 
-    this.maxDist = 60;
-    this.minDist = 50;
+    this.maxDist = 50;
+    this.minDist = 40;
     this.particleThruster = 10;
     this.randomization = 1000;
-    this.correctionForce = 0.2;
-    this.damping = 0.3;
+    this.correctionForce = 4.0;
+    this.damping = 0.9;
 
     this.maxParticleAge = 500;
     this.age = 0;
@@ -453,13 +453,13 @@ PlayerSystem.prototype.evalDeriv = function(state) {
         // additional correcting force
         if (dist > this.minDist) {
             var correction = new THREE.Vector2(cosine, sine);
-            correction.setLength(-1 * Math.pow(dist / this.maxDist, 4) * this.correctionForce);
+            correction.setLength(-1 * Math.pow(dist / this.maxDist, 2) * this.correctionForce);
             dir.addSelf(correction)
         }
 
         // damp a tiny bit just to make sure we don't explode too quickly
         var damping = new THREE.Vector2(particle[2], particle[3]);
-        damping.setLength(-1 * this.damping)
+        damping.setLength(-1 * this.damping * Math.pow(dist / this.maxDist, 2))
 
         dir.addSelf(damping);
 
