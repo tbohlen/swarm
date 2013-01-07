@@ -1,6 +1,6 @@
 var drawLoopID;
 var logicLoopID;
-var LOGIC_LOOP_TIME = 8;
+var LOGIC_LOOP_TIME = 5;
 var DRAW_LOOP_TIME = 1000/30;
 var colors = [[255, 100, 100], [75, 255, 125], [100, 100, 200], [175, 175, 50]]
 
@@ -29,36 +29,7 @@ function Game() {
     this.lastLogicIndex = -1;
     this.drawFrame = 0;
     this.logicFrame = 0;
-
-    this.nextLevelIndex = 0
 }
-
-/*
- * Method: nextLevel
- * Starts the next level.
- *
- * Member Of: Game
- */
-Game.prototype.nextLevel = function() {
-    if  (this.nextLevelIndex) {
-        this.currentLevel.kill(this);
-    }
-    this.context.fillStyle = "rgb(255, 255, 255)";
-    this.context.font = "40px helvetica";
-
-    if(window.gameLevels.length > this.nextLevelIndex) {
-        var coords = getTextXY("Next Universe!", this.context);
-        this.context.fillText("Next Universe!", coords[0], coords[1]);
-
-        this.currentLevel = new window.gameLevels[this.nextLevelIndex]();
-        this.addSprite(this.currentLevel, false, true);
-        this.nextLevelIndex++;
-    }
-    else {
-        var coords = getTextXY("Winner!", this.context);
-        this.context.fillText("Winner!", coords[0], coords[1]);
-    }
-};
 
 /*
  * Method: addSprite
@@ -105,38 +76,30 @@ Game.prototype.resize = function() {
 
 
 
-
-
 ///////////////////////////////////////////////////////////////////////////////
-///////////////////////////////// Blackhole ///////////////////////////////////
+////////////////////////////////// Player /////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
 
 
 /*
- * Constructor: Blackhole
- * Builds a new blackhole object that can be moved around and displayed on
+ * Constructor: Player
+ * Builds a new player object that can be moved around and displayed on
  * screen.
  *
  * Parameters:
- * x - the x coord of the center
- * y - the y coord of the center of the blackhole
- * radius - the radius of the collision area of the blackhole
+ * x - the x coord of the player
+ * y - the y coord of the player
+ * num - the number of particles to start with
  */
-function Blackhole(x, y, radius) {
+function Player(x, y, number) {
     this.unused = true;
     this.age = 0;
-    this.centerX = x;
-    this.centerY = y;
-    this.radius = radius;
-    this.height = radius;
-    this.width = radius;
-    this.x = this.centerX - this.radius/2
-    this.y = this.centerY - this.radius/2;
+    this.x = x;
+    this.y = y;
     this.drawIndex = -1;
     this.logicIndex = -1;
-    this.maxAge = 8;
-    this.system = new BlackholeSystem(this.centerX, this.centerY, this.radius, this.maxAge);
+    this.system = new PlayerSystem(this.x, this.y, number);
 }
 
 /*
@@ -146,9 +109,9 @@ function Blackhole(x, y, radius) {
  * Parameters:
  * game - the game object
  *
- * Member Of: Blackhole
+ * Member Of: Player
  */
-Blackhole.prototype.show = function(game) {
+Player.prototype.show = function(game) {
     game.addSprite(this.system, true, true);
     game.addSprite(this, true, true);
 };
@@ -160,27 +123,13 @@ Blackhole.prototype.show = function(game) {
  * Parameters:
  * ctx - the drawing context
  *
- * Member Of: Blackhole
+ * Member Of: Player
  */
-Blackhole.prototype.draw = function(game) {
-    game.context.fillStyle = "rgb(0,0,0)";
+Player.prototype.draw = function(game) {
+    game.context.fillStyle = "rgb(0, 200, 0)";
     drawCircle(this.centerX, this.centerY, this.radius, game.context);
     game.context.fill();
     this.age++;
-};
-
-/*
- * Method: contains
- * returns true if x, y is a point inside the blackhole shape.
- *
- * Parameters:
- * x - the x position to test
- * y - the y position to test
- *
- * Member Of: Blackhole
- */
-Blackhole.prototype.contains = function(x, y) {
-    return distance(this.centerX, this.centerY, x, y) <= this.radius;
 };
 
 /*
@@ -190,42 +139,10 @@ Blackhole.prototype.contains = function(x, y) {
  * Parameters:
  * game - the game object
  *
- * Member Of: Blackhole
+ * Member Of: Player
  */
-Blackhole.prototype.doLogic = function(game) {
-    if (this.contains(game.mouseX, game.mouseY) && this.unused) {
-        // if the mouse is within the shape and the blackhole is alive, go to
-        // the next level
-        game.nextLevel();
-        this.unused = false;
-    }
-};
-
-/*
- * Method: kill
- * Kills the object by removing it from the drawElements list and setting alive to
- * false.
- *
- * Parameters:
- * Param - desc...
- *
- * Member Of: Blackhole
- */
-Blackhole.prototype.isDead = function(game) {
-    return this.age > this.maxAge && Object.keys(this.system.particles).length == 0;
-};
-
-/*
- * Method: kill
- * Cleans up the blackhole as it is killed.
- *
- * Parameters:
- * game - the game obj
- *
- * Member Of: Blackhole
- */
-Blackhole.prototype.kill = function(game) {
-    this.system.dead = true;
+Player.prototype.doLogic = function(game) {
+    // does nothing at the moment
 };
 
 
@@ -283,14 +200,7 @@ function drawLoop(game) {
     for (var key in game.drawElements) {
         if (game.drawElements.hasOwnProperty(key)) {
             var element = game.drawElements[key];
-            if (element.isDead()) {
-                element.kill();
-                delete game.drawElements[element.drawIndex];
-                delete game.logicElements[element.logicIndex];
-            }
-            else {
-                element.draw(game);
-            }
+            element.draw(game);
         }
     }
 }
@@ -319,12 +229,7 @@ function logicLoop(game) {
  */
 function loadGame(callback) {
     window.game = new Game();
-    window.game.blackholeImage = new Image();
-    console.log("Loading...");
-    window.game.blackholeImage.onload = function() {
-        callback(window.game);
-    };
-    window.game.blackholeImage.src = "images/blackhole.png";
+    callback(window.game);
 }
 
 
@@ -335,7 +240,10 @@ $(document).ready(function() {
         console.log("loaded");
         // size the game and add the canvas to the screen
         game.resize();
-        game.nextLevel();
+
+        // create the player
+        game.player = new Player(400, 200, 500);
+        game.player.show(game);
 
         // start the loops
         drawLoopId = window.setInterval(drawLoop, DRAW_LOOP_TIME, game);
@@ -352,9 +260,18 @@ $(document).ready(function() {
         });
 
         $(document).on('keypress', function(ev) {
-            // pressing 1 allows for level skipping
-            if (ev.keycode === 49) {
-                window.game.nextLevel();
+            // up, left, right, down for moving
+            if (ev.keycode === 37) {
+                // move left
+            }
+            if (ef.keycode === 38) {
+                // move up
+            }
+            if (ef.keycode === 39) {
+                // move right
+            }
+            if (ef.keycode === 40) {
+                // move down
             }
         })
     });
