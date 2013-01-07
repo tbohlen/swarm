@@ -258,12 +258,16 @@ $(document).ready(function() {
         // size the game and add the canvas to the screen
         game.resize();
 
-        // create the player
-        game.playerOne = new Player(400, 200, 200, [200, 0, 0]);
-        game.playerOne.show(game);
+        // create the players
+        game.playerOne = new Player(400, 200, 10, [200, 0, 0]);
+        game.playerTwo = new Player(600, 200, 10, [0, 200, 0]);
 
-        // create the second player
-        game.playerTwo = new Player(440, 200, 200, [0, 200, 0]);
+        // give each system a reference to the other
+        game.playerOne.system.others = game.playerTwo.system.particles;
+        game.playerTwo.system.others = game.playerOne.system.particles;
+
+        // show both players
+        game.playerOne.show(game);
         game.playerTwo.show(game);
 
 
