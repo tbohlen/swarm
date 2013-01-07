@@ -328,6 +328,22 @@ ColorParticle.prototype.draw = function(game) {
     game.context.fill();
 };
 
+/*
+ * Method: collidesWith
+ * Returns true if this particle collides with the other circular particle
+ * provided.
+ *
+ * Parameters:
+ * that - the other circular particle to test for a collision with
+ *
+ * Member Of: ColorParticle
+ */
+ColorParticle.prototype.collidesWith = function(that) {
+    var totRadius = that.radius + this.radius;
+    var totDistance = distance(this.x, this.y, that.x, that.y);
+    return totRadius > totDistance;
+};
+
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -340,7 +356,7 @@ ColorParticle.prototype.draw = function(game) {
  * Constructor: PlayerSystem
  * A particle system where all particles are accelerated towards the center.
  */
-function PlayerSystem(x, y, number) {
+function PlayerSystem(x, y, number, color) {
     ParticleSystem.call(this, x, y);
 
     this.maxDist = 50;
@@ -352,7 +368,7 @@ function PlayerSystem(x, y, number) {
 
     this.maxParticleAge = 500;
     this.age = 0;
-    this.color = [50, 150, 50];
+    this.color = color;
 
     this.addParticles(number);
 }

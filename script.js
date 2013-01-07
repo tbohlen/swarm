@@ -2,7 +2,6 @@ var drawLoopID;
 var logicLoopID;
 var LOGIC_LOOP_TIME = 5;
 var DRAW_LOOP_TIME = 1000/30;
-var colors = [[255, 100, 100], [75, 255, 125], [100, 100, 200], [175, 175, 50]]
 
 
 
@@ -92,14 +91,15 @@ Game.prototype.resize = function() {
  * y - the y coord of the player
  * num - the number of particles to start with
  */
-function Player(x, y, number) {
+function Player(x, y, number, color) {
     this.unused = true;
     this.age = 0;
     this.x = x;
     this.y = y;
     this.drawIndex = -1;
     this.logicIndex = -1;
-    this.system = new PlayerSystem(this.x, this.y, number);
+    this.color = color;
+    this.system = new PlayerSystem(this.x, this.y, number, color);
     this.radius = 10;
 }
 
@@ -113,8 +113,8 @@ function Player(x, y, number) {
  * Member Of: Player
  */
 Player.prototype.show = function(game) {
-    game.addSprite(this.system, true, true);
     game.addSprite(this, true, true);
+    game.addSprite(this.system, true, true);
 };
 
 /*
@@ -127,7 +127,7 @@ Player.prototype.show = function(game) {
  * Member Of: Player
  */
 Player.prototype.draw = function(game) {
-    game.context.fillStyle = "rgb(0, 200, 0)";
+    game.context.fillStyle = "rgb(" + Math.floor(this.color[0]).toString() + ", " + Math.floor(this.color[1]).toString() + ", " + Math.floor(this.color[2]).toString() + ")";
     drawCircle(this.x, this.y, this.radius, game.context);
     game.context.fill();
     this.age++;
@@ -263,7 +263,8 @@ $(document).ready(function() {
         game.playerOne.show(game);
 
         // create the second player
-        //game.playerTwo = new Player(440, 200, 200, [0, 200, 0]);
+        game.playerTwo = new Player(440, 200, 200, [0, 200, 0]);
+        game.playerTwo.show(game);
 
 
         // start the loops
@@ -281,7 +282,7 @@ $(document).ready(function() {
         });
 
         $(document).on('keydown', function(ev) {
-            // up, left, right, down for moving
+            // Player one up, left, right, down for moving
             if (ev.keyCode === 37) {
                 // move left
                 window.game.playerOne.left = true;
@@ -297,6 +298,24 @@ $(document).ready(function() {
             if (ev.keyCode === 40) {
                 // move down
                 window.game.playerOne.down = true;
+            }
+
+            // player two w a s d for moving
+            if (ev.keyCode === 65) {
+                // move left
+                window.game.playerTwo.left = true;
+            }
+            if (ev.keyCode === 87) {
+                // move up
+                window.game.playerTwo.up = true;
+            }
+            if (ev.keyCode === 68) {
+                // move right
+                window.game.playerTwo.right = true;
+            }
+            if (ev.keyCode === 83) {
+                // move down
+                window.game.playerTwo.down = true;
             }
         });
 
@@ -317,6 +336,24 @@ $(document).ready(function() {
             if (ev.keyCode === 40) {
                 // move down
                 window.game.playerOne.down = false;
+            }
+
+            // player two w a s d for moving
+            if (ev.keyCode === 65) {
+                // move left
+                window.game.playerTwo.left = false;
+            }
+            if (ev.keyCode === 87) {
+                // move up
+                window.game.playerTwo.up = false;
+            }
+            if (ev.keyCode === 68) {
+                // move right
+                window.game.playerTwo.right = false;
+            }
+            if (ev.keyCode === 83) {
+                // move down
+                window.game.playerTwo.down = false;
             }
         });
     });
