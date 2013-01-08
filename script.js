@@ -2,7 +2,7 @@ var drawLoopID;
 var logicLoopID;
 var LOGIC_LOOP_TIME = 5;
 var DRAW_LOOP_TIME = 1000/30;
-var playerVel = 0.75
+var PLAYER_VEL = 1.5
 
 
 
@@ -144,23 +144,24 @@ Player.prototype.draw = function(game) {
  * Member Of: Player
  */
 Player.prototype.doLogic = function(game) {
-    // does nothing at the moment
+    var dir = new THREE.Vector2(0, 0);
     if(this.left) {
-        this.system.x -= playerVel;
-        this.x -= playerVel;
+        dir.x -= 1;
     }
     if (this.right) {
-        this.system.x += playerVel;
-        this.x += playerVel;
+        dir.x += 1;
     }
     if (this.down) {
-        this.system.y += playerVel;
-        this.y += playerVel;
+        dir.y += 1;
     }
     if (this.up) {
-        this.system.y -= playerVel;
-        this.y -= playerVel;
+        dir.y -= 1;
     }
+    dir.setLength(PLAYER_VEL);
+    this.system.y += dir.y;
+    this.system.x += dir.x;
+    this.y += dir.y;
+    this.x += dir.x;
 };
 
 
