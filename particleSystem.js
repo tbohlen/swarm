@@ -299,7 +299,7 @@ function ColorParticle(x, y, velX, velY, color) {
     Particle.call(this, x, y, velX, velY);
     this.state = [x, y, velX, velY, 0];
     this.color = color;
-    this.lives = 1;
+    this.lives = 50;
     this.radius = 4;
 }
 
@@ -365,12 +365,14 @@ function PlayerSystem(x, y, number, color) {
 
     this.others = {}; // the other particles. aka the enemy
 
-    this.maxDist = 50;
-    this.minDist = 40;
-    this.particleThruster = 10;
-    this.randomization = 1000;
-    this.correctionForce = 4.0;
+    this.maxDist = 55;
+    this.minDist = 45;
+    this.particleThruster = 15;
+    this.randomization = 30000.0;
+    this.correctionForce = 2;
+    this.correctionPower = 2.0;
     this.damping = 0.9;
+    this.maxParticleVel = 10;
 
     this.maxParticleAge = 500;
     this.age = 0;
@@ -429,7 +431,7 @@ PlayerSystem.prototype.addParticles = function(numNew) {
         var velX = 0;
         var velY = 0;
 
-        var particle = new ColorParticle(this.x + x, this.y + y, velX, velY, scale(this.color, boundedRand(0.5, 1.0)));
+        var particle = new ColorParticle(this.x + x, this.y + y, velX, velY, this.color);
         particle.maxAge = this.maxParticleAge;
         this.lastIndex++;
         this.particles[this.lastIndex] = particle;
@@ -462,10 +464,19 @@ PlayerSystem.prototype.evalDeriv = function(state) {
         // check for collisions
         for (otherKey in this.others) {
             if (this.particles[key].collidesWith(this.others[otherKey])) {
-                deriv[key] = [-1 * particle[2], -1 * particle[3], -2 * particle[2], -2 * particle[3], 1];
-                this.particles[key].lives--;
-                this.others[key].lives--;
-                done = true;
+                //deriv[key] = [-1 * particle[2], -1 * particle[3], -2 * particle[2], -2 * particle[3], 1];
+                var ourVel = distance(0, 0, particle[2], particle[3]);
+                var theirVel = distance(0, 0, this.others[otherKey].state[2], this.others[otherKey].state[3])
+                if (ourVel > theirVel + 10) {
+                    this.others[otherKey].lives--;
+                }
+                else if (ourVel < theirVel - 10){
+                    this.particles[key].lives--;
+                }
+                else {
+                    this.others[otherKey].lives--;
+                    this.particles[key].lives--;
+                }
                 break;
             }
         }
@@ -473,29 +484,39 @@ PlayerSystem.prototype.evalDeriv = function(state) {
         // if their was no collision, move like normal
         if (!done) {
             var dist = distance(particle[0], particle[1], this.x, this.y);
-
             var angleToCenter = Math.atan((this.y - particle[1])/(this.x - particle[0]));
-            if (particle[0] - this.x < 0) {
+            if (this.x - particle[0] < 0){
                 angleToCenter = angleToCenter + Math.PI;
             }
 
-            // random (vaguely) radial dir
-            var sine = Math.sin(angleToCenter);
-            var cosine = Math.cos(angleToCenter);
-            var dir = new THREE.Vector2(cosine + this.randomization * boundedRand(-1, 1), sine + this.randomization * boundedRand(-1, 1));
+            var angle = Math.atan(particle[3]/particle[2]);
+            if (angle != angle) {
+                angle = boundedRand(0, Math.PI * 2);
+            }
+            else if (particle[2] < 0){
+                angle = angle + Math.PI;
+            }
 
-            dir.setLength(-1 * this.particleThruster * boundedRand(0.5, 1.0));
+            // randomize the angle
+            angle = angle + boundedRand(-1 * this.randomization, this.randomization);
+            
+            var sine = Math.sin(angle);
+            var cosine = Math.cos(angle);
+            var dir = new THREE.Vector2(cosine, sine);
 
-            // additional correcting force
-            if (dist > this.minDist) {
-                var correction = new THREE.Vector2(cosine, sine);
-                correction.setLength(-1 * Math.pow(dist / this.maxDist, 2) * this.correctionForce);
+            dir.setLength(this.particleThruster);
+
+             //additional correcting force
+            if (dist > this.maxDist) {
+                var correction = new THREE.Vector2(Math.cos(angleToCenter), Math.sin(angleToCenter));
+                correction.setLength(Math.pow(dist / this.maxDist, this.correctionPower) * this.correctionForce);
                 dir.addSelf(correction)
             }
 
             // damp a tiny bit just to make sure we don't explode too quickly
             var damping = new THREE.Vector2(particle[2], particle[3]);
-            damping.setLength(-1 * this.damping * Math.pow(dist / this.maxDist, 2))
+            var vel = damping.length()
+            damping.setLength(-1 * this.damping * vel * dist / (this.maxParticleVel * this.maxDist));
 
             dir.addSelf(damping);
 

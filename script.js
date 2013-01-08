@@ -2,6 +2,7 @@ var drawLoopID;
 var logicLoopID;
 var LOGIC_LOOP_TIME = 5;
 var DRAW_LOOP_TIME = 1000/30;
+var playerVel = 0.75
 
 
 
@@ -145,20 +146,20 @@ Player.prototype.draw = function(game) {
 Player.prototype.doLogic = function(game) {
     // does nothing at the moment
     if(this.left) {
-        this.system.x -= 1;
-        this.x -= 1;
+        this.system.x -= playerVel;
+        this.x -= playerVel;
     }
     if (this.right) {
-        this.system.x += 1;
-        this.x += 1;
+        this.system.x += playerVel;
+        this.x += playerVel;
     }
     if (this.down) {
-        this.system.y += 1;
-        this.y += 1;
+        this.system.y += playerVel;
+        this.y += playerVel;
     }
     if (this.up) {
-        this.system.y -= 1;
-        this.y -= 1;
+        this.system.y -= playerVel;
+        this.y -= playerVel;
     }
 };
 
@@ -259,8 +260,8 @@ $(document).ready(function() {
         game.resize();
 
         // create the players
-        game.playerOne = new Player(400, 200, 10, [200, 0, 0]);
-        game.playerTwo = new Player(600, 200, 10, [0, 200, 0]);
+        game.playerOne = new Player(400, 200, 100, [200, 0, 0]);
+        game.playerTwo = new Player(600, 200, 100, [0, 200, 0]);
 
         // give each system a reference to the other
         game.playerOne.system.others = game.playerTwo.system.particles;
