@@ -1,3 +1,6 @@
+var LIFE_VELOCITY_BUFFER = 10;
+var STARTING_LIVES = 5;
+
 ///////////////////////////////////////////////////////////////////////////////
 //////////////////////////////// Time Stepper /////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -298,7 +301,7 @@ function ColorParticle(x, y, velX, velY, color) {
     Particle.call(this, x, y, velX, velY);
     this.state = [x, y, velX, velY, 0];
     this.color = color;
-    this.lives = 4;
+    this.lives = STARTING_LIVES;
     this.radius = 4;
 }
 
@@ -360,11 +363,36 @@ function PlayerSystem(x, y, number, color) {
     this.maxParticleAge = 500;
     this.age = 0;
     this.color = color;
+    this.maxParticles = number;
+    this.addCounter = 0;
+    this.addTime = Math.floor(1000/LOGIC_LOOP_TIME);
 
     this.addParticles(number);
 }
 
 inherits(PlayerSystem, ParticleSystem);
+
+/*
+ * Method: replenishParticles
+ * Adds more particles to the system, if there is space and the add counter has
+ * incremented sufficiently since the last particle was added (this incorporates
+ * a delay between particle adds that is fully controllable using addTime.
+ *
+ * Member Of: PlayerSystem
+ */
+PlayerSystem.prototype.replenishParticles = function() {
+    if (this.addCounter < this.addTime) {
+        this.addCounter++;
+    }
+    else {
+        if (Object.keys(this.particles).length < this.maxParticles) {
+            // add a particle
+            this.addParticles(1);
+            // reset the counter
+            this.addCounter = 0;
+        }
+    }
+};
 
 /*
  * Method: doLogic
@@ -380,6 +408,8 @@ PlayerSystem.prototype.doLogic = function(game) {
     var key;
     for (key in this.particles) {
         var particle = this.particles[key];
+
+        // check particle death
         if (particle.isDead(this)) {
             // show a little flash
             var flashColor = [0, 0, 0, 0.8];
@@ -400,10 +430,10 @@ PlayerSystem.prototype.doLogic = function(game) {
                 // subtract lives appropriately
                 var ourVel = distance(0, 0, particle.state[2], particle.state[3]);
                 var theirVel = distance(0, 0, this.others[otherKey].state[2], this.others[otherKey].state[3])
-                if (ourVel > theirVel + 10) {
+                if (ourVel > theirVel + LIFE_VELOCITY_BUFFER) {
                     this.others[otherKey].lives--;
                 }
-                else if (ourVel < theirVel - 10){
+                else if (ourVel < theirVel - LIFE_VELOCITY_BUFFER){
                     particle.lives--;
                 }
                 else {
@@ -414,6 +444,9 @@ PlayerSystem.prototype.doLogic = function(game) {
             }
         }
     }
+
+    // add new particles
+    this.replenishParticles();
 
     // step forward the system
     trapezoidalStep(this, 0.1);
@@ -445,10 +478,20 @@ PlayerSystem.prototype.addParticles = function(numNew) {
         var velX = 0;
         var velY = 0;
 
+
+        // add the particle
         var particle = new ColorParticle(this.x + x, this.y + y, velX, velY, this.color);
         particle.maxAge = this.maxParticleAge;
         this.lastIndex++;
         this.particles[this.lastIndex] = particle;
+
+        // show a little flash
+        var flashColor = [0, 0, 0, 0.8];
+        flashColor[0] = particle.color[0];
+        flashColor[1] = particle.color[1];
+        flashColor[2] = particle.color[2];
+        game.noninteracting.addFlash(particle.state[0], particle.state[1], flashColor, "fast");
+
     }
 };
 
