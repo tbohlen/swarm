@@ -348,8 +348,8 @@ function PlayerSystem(x, y, number, color) {
 
     this.others = {}; // the other particles. aka the enemy
 
-    this.maxDist = 55;
-    this.minDist = 45;
+    this.maxDist = 70;
+    this.minDist = 60;
     this.particleThruster = 15;
     this.randomization = 30000.0;
     this.correctionForce = 2;
@@ -382,7 +382,12 @@ PlayerSystem.prototype.doLogic = function(game) {
         var particle = this.particles[key];
         if (particle.isDead(this)) {
             // show a little flash
-            showFlash(particle.state[0], particle.state[1]);
+            var flashColor = [0, 0, 0, 0.8];
+            flashColor[0] = particle.color[0] + 0.5 * (255 - particle.color[0]);
+            flashColor[1] = particle.color[1] + 0.5 * (255 - particle.color[1]);
+            flashColor[2] = particle.color[2] + 0.5 * (255 - particle.color[2]);
+
+            game.noninteracting.addFlash(particle.state[0], particle.state[1], flashColor);
             delete this.particles[key];
         }
 

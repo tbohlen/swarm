@@ -7,6 +7,27 @@ function inherits(child, parent) {
 }
 
 /*
+ * Function: getColorString
+ * Returns a string that can be used to set the fill or stroke of the canvas.
+ */
+function getColorString(color, scale) {
+    if (scale === null || typeof(scale) === 'undefined') {
+        scale = 1.0;
+    }
+
+    if (color.length === 3) {
+        return "rgb(" + Math.floor(color[0]).toString() + ", " + Math.floor(color[1]).toString() + ", " + Math.floor(color[2]).toString() + ")";
+
+    }
+    else if (color.length === 4) {
+        return "rgba(" + Math.floor(color[0] * scale).toString() + ", " + Math.floor(color[1] * scale).toString() + ", " + Math.floor(color[2] * scale).toString() + ", " + (color[3] * scale).toString() + ")";
+    }
+    else {
+        return "rgba(0, 0, 0, 0)";
+    }
+}
+
+/*
  * Function: getTextXY
  * Returns the x and y coords at which the text should be rendered in order to
  * center it in the context.

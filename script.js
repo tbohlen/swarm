@@ -29,6 +29,8 @@ function Game() {
     this.lastLogicIndex = -1;
     this.drawFrame = 0;
     this.logicFrame = 0;
+    this.noninteracting = new Noninteracting();
+    this.addSprite(this.noninteracting, true, true);
 }
 
 /*
@@ -262,7 +264,7 @@ $(document).ready(function() {
 
         // create the players
         game.playerOne = new Player(400, 200, 100, [200, 0, 0]);
-        game.playerTwo = new Player(600, 200, 100, [0, 200, 0]);
+        game.playerTwo = new Player(1000, 200, 100, [0, 200, 0]);
 
         // give each system a reference to the other
         game.playerOne.system.others = game.playerTwo.system.particles;
