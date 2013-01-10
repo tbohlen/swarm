@@ -147,16 +147,16 @@ Player.prototype.draw = function(game) {
  */
 Player.prototype.doLogic = function(game) {
     var dir = new THREE.Vector2(0, 0);
-    if(this.left) {
+    if(this.left && this.x >= 0) {
         dir.x -= 1;
     }
-    if (this.right) {
+    if (this.right && this.x <= game.width) {
         dir.x += 1;
     }
-    if (this.down) {
+    if (this.down && this.y <= game.height) {
         dir.y += 1;
     }
-    if (this.up) {
+    if (this.up && this.y >= 0) {
         dir.y -= 1;
     }
     dir.setLength(PLAYER_VEL);
