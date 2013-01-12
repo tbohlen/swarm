@@ -94,7 +94,7 @@ Game.prototype.resize = function() {
  * y - the y coord of the player
  * num - the number of particles to start with
  */
-function Player(x, y, number, color) {
+function Player(x, y, number, color, team) {
     this.unused = true;
     this.age = 0;
     this.x = x;
@@ -102,7 +102,8 @@ function Player(x, y, number, color) {
     this.drawIndex = -1;
     this.logicIndex = -1;
     this.color = color;
-    this.system = new PlayerSystem(this.x, this.y, number, color);
+    this.team = team
+    this.system = new PlayerSystem(this.x, this.y, number, color, this.team);
     this.radius = 10;
 }
 
@@ -160,8 +161,7 @@ Player.prototype.doLogic = function(game) {
         dir.y -= 1;
     }
     dir.setLength(PLAYER_VEL);
-    this.system.y += dir.y;
-    this.system.x += dir.x;
+    this.system.pos.addSelf(dir);
     this.y += dir.y;
     this.x += dir.x;
 };
@@ -263,8 +263,8 @@ $(document).ready(function() {
         game.resize();
 
         // create the players
-        game.playerOne = new Player(400, 200, 100, [100, 100, 255]);
-        game.playerTwo = new Player(1000, 200, 100, [80, 255, 80]);
+        game.playerOne = new Player(400, 200, 100, [100, 100, 255], 1);
+        game.playerTwo = new Player(1000, 200, 100, [80, 255, 80], 2);
 
         // give each system a reference to the other
         game.playerOne.system.others = game.playerTwo.system.particles;

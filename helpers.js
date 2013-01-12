@@ -7,6 +7,42 @@ function inherits(child, parent) {
 }
 
 /*
+ * Method: angle
+ * Returns the angle this vector makes with the positive x direction.
+ *
+ * If the vector is the 0 vector then the angle returned is 0.
+ *
+ * Member Of: THREE.Vector2
+ */
+THREE.Vector2.prototype.angle = function() {
+    var angle = Math.atan(this.y/this.x);
+    if (angle != angle) {
+        angle = 0;
+    }
+    else if (this.x < 0){
+        angle = angle + Math.PI;
+    }
+    return angle;
+};
+
+/*
+ * Method: angleWith
+ * Returns the angle between this vector and the given vector
+ *
+ * Parameters:
+ * vec - the other vector
+ *
+ * Member Of: THREE.Vector2
+ */
+THREE.Vector2.prototype.angleWith = function(vec) {
+    var angle = Math.atan((this.y - vec.y)/(this.x - vec.x));
+    if (this.x - vec.x < 0){
+        angle = angle + Math.PI;
+    }
+    return angle;
+};
+
+/*
  * Function: getColorString
  * Returns a string that can be used to set the fill or stroke of the canvas.
  */
