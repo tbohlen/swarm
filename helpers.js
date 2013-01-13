@@ -46,17 +46,20 @@ THREE.Vector2.prototype.angleWith = function(vec) {
  * Function: getColorString
  * Returns a string that can be used to set the fill or stroke of the canvas.
  */
-function getColorString(color, scale) {
+function getColorString(color, scale, alphaScale) {
     if (scale === null || typeof(scale) === 'undefined') {
         scale = 1.0;
     }
+    if (alphaScale === null || typeof(alphaScale) === 'undefined') {
+        alphaScale = 1.0;
+    }
 
     if (color.length === 3) {
-        return "rgb(" + Math.floor(color[0]).toString() + ", " + Math.floor(color[1]).toString() + ", " + Math.floor(color[2]).toString() + ")";
+        return "rgb(" + Math.floor(color[0] * scale).toString() + ", " + Math.floor(color[1] * scale).toString() + ", " + Math.floor(color[2] * scale).toString() + ")";
 
     }
     else if (color.length === 4) {
-        return "rgba(" + Math.floor(color[0] * scale).toString() + ", " + Math.floor(color[1] * scale).toString() + ", " + Math.floor(color[2] * scale).toString() + ", " + (color[3] * scale).toString() + ")";
+        return "rgba(" + Math.floor(color[0] * scale).toString() + ", " + Math.floor(color[1] * scale).toString() + ", " + Math.floor(color[2] * scale).toString() + ", " + (color[3] * alphaScale).toString() + ")";
     }
     else {
         return "rgba(0, 0, 0, 0)";

@@ -1,5 +1,6 @@
 var LIFE_VELOCITY_BUFFER = 5;
-var STARTING_LIVES = 5;
+var STARTING_LIVES = 50;
+var ATTACK_DISTANCE = 40;
 
 ///////////////////////////////////////////////////////////////////////////////
 //////////////////////////////// Time Stepper /////////////////////////////////
@@ -353,7 +354,7 @@ inherits(ColorParticle, Particle);
 ColorParticle.prototype.draw = function(game) {
     var color = this.color;
     var radius = this.radius;
-    game.context.fillStyle = "rgb(" + Math.floor(color[0]).toString() + ", " + Math.floor(color[1]).toString() + ", " + Math.floor(color[2]).toString() + ")";
+    game.context.fillStyle = getColorString(color);
     drawCircle(this.state[0].x, this.state[0].y, this.radius, game.context);
     game.context.fill();
 };
@@ -384,8 +385,8 @@ ColorParticle.prototype.isDead = function() {
  */
 function AttackParticle(pos, vel, color, team) {
     ColorParticle.call(this, pos, vel, color);
-    this.attacking = false;
     this.team = 0;
+    this.target = null;
 }
 
 inherits(AttackParticle, ColorParticle);
@@ -461,41 +462,66 @@ PlayerSystem.prototype.replenishParticles = function() {
  */
 PlayerSystem.prototype.doLogic = function(game) {
     var key;
+    var otherKey;
     for (key in this.particles) {
         var particle = this.particles[key];
-
         // check particle death
-        if (particle.isDead(this)) {
-            // show a little flash
+        if (particle.isDead()) {
+            // show a little flash if the particle died
             var flashColor = [0, 0, 0, 0.8];
-            flashColor[0] = particle.color[0] + 0.5 * (255 - particle.color[0]);
-            flashColor[1] = particle.color[1] + 0.5 * (255 - particle.color[1]);
-            flashColor[2] = particle.color[2] + 0.5 * (255 - particle.color[2]);
+            flashColor[0] = particle.color[0];
+            flashColor[1] = particle.color[1];
+            flashColor[2] = particle.color[2];
 
             game.noninteracting.addFlash(particle.state[0].x, particle.state[0].y, flashColor);
             delete this.particles[key];
         }
 
-        // check for collisions
+        // check for collisions and closeness to enemy
+        var sortedOthers = [];
         for (otherKey in this.others) {
-            var two = this.others[otherKey];
-            if (collides(particle, two)) {
-                resolveCollision(particle, two)
+            var other = this.others[otherKey];
+            var totRadius = other.radius + particle.radius;
+            var totDistance = particle.state[0].distanceTo(other.state[0]);
 
+            // store all decently close particles for further computation
+            if (totDistance < ATTACK_DISTANCE) {
+                sortedOthers.push([otherKey, totDistance]);
+            }
+
+            // check for collisions
+            if (totDistance < totRadius) {
+                // run the resolve collision function on the two particles
+                resolveCollision(particle, other)
                 // subtract lives appropriately
-                var ourVel = two.state[1].length();
-                var theirVel = this.others[otherKey].state[1].length();
-                if (ourVel > theirVel + LIFE_VELOCITY_BUFFER) {
-                    this.others[otherKey].lives--;
+                other.lives--;
+                particle.lives--;
+            }
+        }
+
+        // sort the other particles by distance
+        sortedOthers.sort(function(a, b) {
+            return a[1] - b[1];
+        });
+
+        var i;
+        // if the particle is already targeting someone, check if it is
+        // still alive
+        if (particle.target !== null && typeof(particle.target) !== 'undefined') {
+            if (!(particle.target in this.others)) {
+                particle.target = null;
+            }
+        }
+
+        // if after checking the target, the particle does not have a target,
+        // find a new one
+        if (particle.target === null || typeof(particle.target) === 'undefined' || !(particle.target in this.others)) {
+            for (i = 0; i < sortedOthers.length; i++) {
+                var enemy = sortedOthers[i][0];
+                if (enemy in this.others) {
+                    particle.target = enemy;
+                    break;
                 }
-                else if (ourVel < theirVel - LIFE_VELOCITY_BUFFER){
-                    particle.lives--;
-                }
-                else {
-                    this.others[otherKey].lives--;
-                    particle.lives--;
-                }
-                break;
             }
         }
     }
@@ -504,7 +530,7 @@ PlayerSystem.prototype.doLogic = function(game) {
     this.replenishParticles();
 
     // step forward the system
-    eulerStep(this, 0.1);
+    trapezoidalStep(this, 0.1);
     this.age++;
 };
 
@@ -570,24 +596,35 @@ PlayerSystem.prototype.evalDeriv = function(state) {
     var deriv = {};
     for (key in state) {
         var particle = state[key];
+        var newVel = new THREE.Vector2(0, 0);
+        var target = this.particles[key].target;
         var dist = this.pos.distanceTo(particle[0]);
-        var angleToCenter = this.pos.angleWith(particle[0]);
-        var angle = particle[1].angle();
-
-        // randomize the angle
-        angle = angle + boundedRand(-1 * this.randomization, this.randomization);
         
-        var sine = Math.sin(angle);
-        var cosine = Math.cos(angle);
-        var dir = new THREE.Vector2(cosine, sine);
+        // if the particle has a target, attack it
+        if (target !== null && typeof(target) !== 'undefined') {
+            newVel.sub(particle[0], this.others[target].state[0]);
+            newVel.setLength(-1 * this.particleThruster);
+        }
+        // otherwise, propel the particle normally
+        else {
+            var angleToCenter = this.pos.angleWith(particle[0]);
+            var angle = particle[1].angle();
 
-        dir.setLength(this.particleThruster);
+            // randomize the angle
+            angle = angle + boundedRand(-1 * this.randomization, this.randomization);
+            
+            var sine = Math.sin(angle);
+            var cosine = Math.cos(angle);
+            newVel = new THREE.Vector2(cosine, sine);
 
-        // additional correcting force
-        if (dist > this.maxDist) {
-            var correction = new THREE.Vector2(Math.cos(angleToCenter), Math.sin(angleToCenter));
-            correction.setLength(Math.pow(dist / this.maxDist, this.correctionPower) * this.correctionForce);
-            dir.addSelf(correction)
+            newVel.setLength(this.particleThruster);
+
+            // additional correcting force
+            if (dist > this.maxDist) {
+                var correction = new THREE.Vector2(Math.cos(angleToCenter), Math.sin(angleToCenter));
+                correction.setLength(Math.pow(dist / this.maxDist, this.correctionPower) * this.correctionForce);
+                newVel.addSelf(correction)
+            }
         }
 
         // damp a tiny bit just to make sure we don't explode too quickly
@@ -595,10 +632,8 @@ PlayerSystem.prototype.evalDeriv = function(state) {
         var vel = damping.length()
         damping.setLength(-1 * this.damping * vel * dist / (this.maxParticleVel * this.maxDist));
 
-        dir.addSelf(damping);
-
-        var newDeriv = [particle[1], dir, 1];
-        deriv[key] = newDeriv;
+        newVel.addSelf(damping);
+        deriv[key] = [particle[1], newVel, 1];
     }
     return deriv;
 };

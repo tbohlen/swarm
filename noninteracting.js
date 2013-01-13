@@ -84,7 +84,7 @@ function Flash(x, y, color) {
     this.pos = new THREE.Vector2(x, y);
     this.draws = 0;
     this.maxDraws = 20;
-    this.radius = 8;
+    this.radius = 10;
     this.color = color;
 }
 
@@ -122,7 +122,7 @@ Flash.prototype.getRadius = function() {
  */
 Flash.prototype.draw = function(game) {
     var radius = this.getRadius();
-    game.context.fillStyle = getColorString(this.color);
+    game.context.fillStyle = getColorString(this.color, 1.0, 1 - this.draws/this.maxDraws);
     drawCircle(this.pos.x, this.pos.y, radius, game.context);
     game.context.fill();
     this.draws++;
@@ -148,6 +148,6 @@ inherits(FastFlash, Flash);
  *
  * Member Of: Flash
  */
-Flash.prototype.getRadius = function() {
+FastFlash.prototype.getRadius = function() {
     return (1 - Math.pow(this.draws/this.maxDraws - 0.4, 1)) * this.radius;
 };
