@@ -1,10 +1,3 @@
-var LIFE_VELOCITY_BUFFER = 5;
-var STARTING_LIVES = 50;
-var ATTACK_DISTANCE = 40;
-var ATTACK_THRUSTERS = 8;
-var THRUSTERS = 8;
-var CONNECT_DIST = 100;
-
 ///////////////////////////////////////////////////////////////////////////////
 //////////////////////////////// Time Stepper /////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -33,6 +26,7 @@ function eulerStep(system, timeStep) {
         particle[0].addSelf(scaledDeriv[0]);
         particle[1].addSelf(scaledDeriv[1]);
         particle[2] += thisDeriv[2] * timeStep
+        particle[3] += thisDeriv[3];
     }
     system.setState(currentState);
 }
@@ -61,6 +55,7 @@ function trapezoidalStep(system, timeStep) {
         next[0].add(particle[0], scaledDeriv[0]);
         next[1].add(particle[1], scaledDeriv[1]);
         next[2] = particle[2] + thisDeriv[2] * timeStep
+        next[3] = particle[3] + thisDeriv[3];
         nextState[key] = next;
     }
 
@@ -84,6 +79,7 @@ function trapezoidalStep(system, timeStep) {
         next[1].add(particle[1], thisDerivOne[1]);
         next[1].addSelf(thisDerivTwo[1]);
         next[2] = particle[2] + (thisDerivOne[2] + thisDerivTwo[2]) * timeStep * 0.5
+        next[3] = particle[3] + (thisDerivOne[2] + thisDerivTwo[2]) * 0.5;
 
         currentState[key] = next;
     }
@@ -108,11 +104,10 @@ function trapezoidalStep(system, timeStep) {
  * a particles x, y, velX, velY, and time.
  *
  * Parameters:
- * x - the x coord of the system
- * y - the y coord of the system
+ * pos - the position of the particle
  */
-function ParticleSystem(x, y) {
-    this.pos = new THREE.Vector2(x, y);
+function ParticleSystem(pos) {
+    this.pos = pos;
     this.particles = {};
     this.lastIndex = -1;
     this.dead = false;
@@ -280,7 +275,7 @@ ParticleSystem.prototype.isDead = function() {
  * any shared values in the prototype.
  */
 function Particle(pos, vel) {
-    this.state = [pos, vel, 0];
+    this.state = [pos, vel, 0, 0];
     this.maxAge = 10;
 }
 
@@ -306,7 +301,7 @@ Particle.prototype.draw = function(game) {
     var color = scale([255.0, 255.0, 255.0], scaleNum);
     var radius = this.radius/scaleNum;
     game.context.fillStyle = "rgb(" + Math.floor(color[0]).toString() + ", " + Math.floor(color[1]).toString() + ", " + Math.floor(color[2]).toString() + ")";
-    drawCircle(this.state[0].x, this.state[0].y, this.radius, game.context);
+    drawCircle(this.state[0], this.radius, game.context);
     game.context.fill();
 };
 
@@ -337,7 +332,7 @@ Particle.prototype.isDead = function(system) {
  */
 function ColorParticle(pos, vel, color) {
     Particle.call(this, pos, vel);
-    this.state = [pos, vel, 0];
+    this.state = [pos, vel, 0, 0];
     this.color = color;
     this.lives = STARTING_LIVES;
     this.radius = 4;
@@ -358,7 +353,7 @@ ColorParticle.prototype.draw = function(game) {
     var color = this.color;
     var radius = this.radius;
     game.context.fillStyle = getColorString(color);
-    drawCircle(this.state[0].x, this.state[0].y, this.radius, game.context);
+    drawCircle(this.state[0], this.radius, game.context);
     game.context.fill();
 };
 
@@ -405,8 +400,8 @@ inherits(AttackParticle, ColorParticle);
  * Constructor: PlayerSystem
  * A particle system where all particles are accelerated towards the center.
  */
-function PlayerSystem(x, y, number, color, team) {
-    ParticleSystem.call(this, x, y);
+function PlayerSystem(pos, number, color, team) {
+    ParticleSystem.call(this, pos);
 
     this.others = {}; // the other particles. aka the enemy
     this.team = team
@@ -476,7 +471,7 @@ PlayerSystem.prototype.doLogic = function(game) {
             flashColor[1] = particle.color[1];
             flashColor[2] = particle.color[2];
 
-            game.noninteracting.addFlash(particle.state[0].x, particle.state[0].y, flashColor);
+            game.noninteracting.addFlash(particle.state[0], flashColor);
             delete this.particles[key];
         }
 
@@ -499,6 +494,7 @@ PlayerSystem.prototype.doLogic = function(game) {
                 // subtract lives appropriately
                 other.lives--;
                 particle.lives--;
+                particle.state[3] = 0;
             }
         }
 
@@ -573,7 +569,7 @@ PlayerSystem.prototype.addParticles = function(numNew) {
         flashColor[0] = particle.color[0];
         flashColor[1] = particle.color[1];
         flashColor[2] = particle.color[2];
-        game.noninteracting.addFlash(particle.state[0].x, particle.state[0].y, flashColor, "fast");
+        game.noninteracting.addFlash(particle.state[0], flashColor, "fast");
 
     }
 };
@@ -602,12 +598,17 @@ PlayerSystem.prototype.evalDeriv = function(state) {
         var particle = state[key];
         var newVel = new THREE.Vector2(0, 0);
         var target = this.particles[key].target;
+        var delayIncr = 0;
         var dist = this.pos.distanceTo(particle[0]);
         
         // if the particle has a target, attack it
         if (target !== null && typeof(target) !== 'undefined') {
-            newVel.sub(particle[0], this.others[target].state[0]);
-            newVel.setLength(-1 * ATTACK_THRUSTERS);
+            if (particle[3] > ATTACK_DELAY) {
+                newVel.sub(particle[0], this.others[target].state[0]);
+                var attackDist = particle[0].distanceTo(this.others[target].state[0])
+                newVel.setLength(-1 * ATTACK_THRUSTERS / Math.pow(attackDist, 0.5));
+            }
+            delayIncr = 1;
         }
         // otherwise, propel the particle normally
         else if (this.particles[key].connected){
@@ -640,7 +641,7 @@ PlayerSystem.prototype.evalDeriv = function(state) {
         damping.setLength(-1 * this.damping * vel * dist / (this.maxParticleVel * this.maxDist));
 
         newVel.addSelf(damping);
-        deriv[key] = [particle[1], newVel, 1];
+        deriv[key] = [particle[1], newVel, 1, delayIncr];
     }
     return deriv;
 };
@@ -685,7 +686,7 @@ function resolveCollision(one, two) {
     var scaledNormalOne = normal.clone();
     scaledNormalOne.setLength(-2 * newVelOne.dot(normal));
     newVelOne.addSelf(scaledNormalOne)
-    var oneState = [newPosOne, newVelOne, 1];
+    var oneState = [newPosOne, newVelOne, one.state[2], one.state[3]];
 
     // recompute for two
     var newPosTwo = new THREE.Vector2(two.state[0].x - rewindTime * two.state[1].x, two.state[0].y - rewindTime * two.state[1].y);
@@ -693,7 +694,7 @@ function resolveCollision(one, two) {
     var scaledNormalTwo = normal.clone();
     scaledNormalTwo.setLength(-2 * newVelTwo.dot(normal));
     newVelTwo.addSelf(scaledNormalTwo)
-    var twoState = [newPosTwo, newVelTwo, 1];
+    var twoState = [newPosTwo, newVelTwo, two.state[2], two.state[3]];
 
     // set the new states
     one.state = oneState;

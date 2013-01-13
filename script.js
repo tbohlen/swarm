@@ -2,7 +2,14 @@ var drawLoopID;
 var logicLoopID;
 var LOGIC_LOOP_TIME = 5;
 var DRAW_LOOP_TIME = 1000/30;
-var PLAYER_VEL = 1.5
+var PLAYER_VEL = 1.5;
+var LIFE_VELOCITY_BUFFER = 5;
+var STARTING_LIVES = 50;
+var ATTACK_DISTANCE = 40;
+var ATTACK_THRUSTERS = 100;
+var THRUSTERS = 8;
+var CONNECT_DIST = 100;
+var ATTACK_DELAY = 50;
 
 
 
@@ -85,6 +92,22 @@ Game.prototype.resize = function() {
 
 
 /*
+ * Constructor: ParticleSource
+ * Creates an area near which new particles are created.
+ */
+function ParticleSource(x, y) {
+    this.pos = new THREE.Vector2(x, y);
+}
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////// Player /////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+
+
+/*
  * Constructor: Player
  * Builds a new player object that can be moved around and displayed on
  * screen.
@@ -97,13 +120,12 @@ Game.prototype.resize = function() {
 function Player(x, y, number, color, team) {
     this.unused = true;
     this.age = 0;
-    this.x = x;
-    this.y = y;
+    this.pos = new THREE.Vector2(x, y);
     this.drawIndex = -1;
     this.logicIndex = -1;
     this.color = color;
     this.team = team
-    this.system = new PlayerSystem(this.x, this.y, number, color, this.team);
+    this.system = new PlayerSystem(this.pos, number, color, this.team);
     this.radius = 10;
 }
 
@@ -132,7 +154,7 @@ Player.prototype.show = function(game) {
  */
 Player.prototype.draw = function(game) {
     game.context.fillStyle = "rgb(" + Math.floor(this.color[0]).toString() + ", " + Math.floor(this.color[1]).toString() + ", " + Math.floor(this.color[2]).toString() + ")";
-    drawCircle(this.x, this.y, this.radius, game.context);
+    drawCircle(this.pos, this.radius, game.context);
     game.context.fill();
     this.age++;
 };
@@ -148,22 +170,22 @@ Player.prototype.draw = function(game) {
  */
 Player.prototype.doLogic = function(game) {
     var dir = new THREE.Vector2(0, 0);
-    if(this.left && this.x >= 0) {
+    if(this.left && this.pos.x >= 0) {
         dir.x -= 1;
     }
-    if (this.right && this.x <= game.width) {
+    if (this.right && this.pos.x <= game.width) {
         dir.x += 1;
     }
-    if (this.down && this.y <= game.height) {
+    if (this.down && this.pos.y <= game.height) {
         dir.y += 1;
     }
-    if (this.up && this.y >= 0) {
+    if (this.up && this.pos.y >= 0) {
         dir.y -= 1;
     }
     dir.setLength(PLAYER_VEL);
     this.system.pos.addSelf(dir);
-    this.y += dir.y;
-    this.x += dir.x;
+    this.pos.y += dir.y;
+    this.pos.x += dir.x;
 };
 
 

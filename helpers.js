@@ -172,14 +172,13 @@ function scale(vec, scalar) {
  * and stroke and called fill and stroke.
  * 
  * Parameters:
- * x - the x coord of the center
- * y - the y coord of the center
+ * pos - the position of the circle
  * radius - the radius of the circle
  * ctx - context to draw on
  */
-function drawCircle(x, y, radius, ctx) {
+function drawCircle(pos, radius, ctx) {
     ctx.beginPath();
-    ctx.arc(x, y, radius, 0, Math.PI*2, true); 
+    ctx.arc(pos.x, pos.y, radius, 0, Math.PI*2, true); 
     ctx.closePath();
 }
 

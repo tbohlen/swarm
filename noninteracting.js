@@ -23,13 +23,13 @@ function Noninteracting() {
  *
  * Member Of: Noninteracting
  */
-Noninteracting.prototype.addFlash = function(x, y, color, type) {
+Noninteracting.prototype.addFlash = function(pos, color, type) {
     var flash;
     if (type === "fast") {
-        flash = new FastFlash(x, y, color);
+        flash = new FastFlash(pos, color);
     }
     else {
-        flash = new Flash(x, y, color);
+        flash = new Flash(pos, color);
     }
     this.lastIndex++;
     this.particles[this.lastIndex] = flash;
@@ -80,8 +80,8 @@ Noninteracting.prototype.draw = function(game) {
  * Constructor: Flash
  * Object that displays a brief flash on the screen.
  */
-function Flash(x, y, color) {
-    this.pos = new THREE.Vector2(x, y);
+function Flash(pos, color) {
+    this.pos = pos;
     this.draws = 0;
     this.maxDraws = 20;
     this.radius = 10;
@@ -123,7 +123,7 @@ Flash.prototype.getRadius = function() {
 Flash.prototype.draw = function(game) {
     var radius = this.getRadius();
     game.context.fillStyle = getColorString(this.color, 1.0, 1 - this.draws/this.maxDraws);
-    drawCircle(this.pos.x, this.pos.y, radius, game.context);
+    drawCircle(this.pos, radius, game.context);
     game.context.fill();
     this.draws++;
 };
@@ -134,8 +134,8 @@ Flash.prototype.draw = function(game) {
  * Constructor: FastFlash
  * Object that displays a brief flash on the screen.
  */
-function FastFlash(x, y, color) {
-    Flash.call(this, x, y, color);
+function FastFlash(pos, color) {
+    Flash.call(this, pos, color);
     this.maxDraws = 5;
     this.radius = 20;
 }
