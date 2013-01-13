@@ -1,6 +1,8 @@
 var LIFE_VELOCITY_BUFFER = 5;
 var STARTING_LIVES = 50;
 var ATTACK_DISTANCE = 40;
+var ATTACK_THRUSTERS = 20;
+var THRUSTERS = 8;
 
 ///////////////////////////////////////////////////////////////////////////////
 //////////////////////////////// Time Stepper /////////////////////////////////
@@ -409,11 +411,10 @@ function PlayerSystem(x, y, number, color, team) {
 
     this.maxDist = 60;
     this.minDist = 30;
-    this.particleThruster = 15;
     this.randomization = 30000.0;
     this.correctionForce = 2;
     this.correctionPower = 2.0;
-    this.damping = 0.9;
+    this.damping = 0.8;
     this.maxParticleVel = 10;
 
     this.maxParticleAge = 500;
@@ -603,7 +604,7 @@ PlayerSystem.prototype.evalDeriv = function(state) {
         // if the particle has a target, attack it
         if (target !== null && typeof(target) !== 'undefined') {
             newVel.sub(particle[0], this.others[target].state[0]);
-            newVel.setLength(-1 * this.particleThruster);
+            newVel.setLength(-1 * ATTACK_THRUSTERS);
         }
         // otherwise, propel the particle normally
         else {
@@ -617,7 +618,7 @@ PlayerSystem.prototype.evalDeriv = function(state) {
             var cosine = Math.cos(angle);
             newVel = new THREE.Vector2(cosine, sine);
 
-            newVel.setLength(this.particleThruster);
+            newVel.setLength(THRUSTERS);
 
             // additional correcting force
             if (dist > this.maxDist) {
