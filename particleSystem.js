@@ -1,8 +1,9 @@
 var LIFE_VELOCITY_BUFFER = 5;
 var STARTING_LIVES = 50;
 var ATTACK_DISTANCE = 40;
-var ATTACK_THRUSTERS = 20;
+var ATTACK_THRUSTERS = 8;
 var THRUSTERS = 8;
+var CONNECT_DIST = 100;
 
 ///////////////////////////////////////////////////////////////////////////////
 //////////////////////////////// Time Stepper /////////////////////////////////
@@ -389,6 +390,7 @@ function AttackParticle(pos, vel, color, team) {
     ColorParticle.call(this, pos, vel, color);
     this.team = 0;
     this.target = null;
+    this.connected = true;
 }
 
 inherits(AttackParticle, ColorParticle);
@@ -521,6 +523,7 @@ PlayerSystem.prototype.doLogic = function(game) {
                 var enemy = sortedOthers[i][0];
                 if (enemy in this.others) {
                     particle.target = enemy;
+                    particle.connected = false;
                     break;
                 }
             }
@@ -607,7 +610,7 @@ PlayerSystem.prototype.evalDeriv = function(state) {
             newVel.setLength(-1 * ATTACK_THRUSTERS);
         }
         // otherwise, propel the particle normally
-        else {
+        else if (this.particles[key].connected){
             var angleToCenter = this.pos.angleWith(particle[0]);
             var angle = particle[1].angle();
 
@@ -626,6 +629,9 @@ PlayerSystem.prototype.evalDeriv = function(state) {
                 correction.setLength(Math.pow(dist / this.maxDist, this.correctionPower) * this.correctionForce);
                 newVel.addSelf(correction)
             }
+        }
+        else if (dist < CONNECT_DIST) {
+            this.particles[key].connected = true;
         }
 
         // damp a tiny bit just to make sure we don't explode too quickly
