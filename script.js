@@ -9,8 +9,8 @@ var ATTACK_DISTANCE = 40;
 var ATTACK_THRUSTERS = 100;
 var THRUSTERS = 8;
 var CONNECT_DIST = 100;
-var ATTACK_DELAY = 50;
-
+var ATTACK_DELAY = 100;
+var ATTACH_DISTANCE = 200;
 
 
 ///////////////////////////////////////////////////////////////////////////////

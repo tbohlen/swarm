@@ -232,4 +232,3 @@ Emitter.prototype.emit = function(event) {
         }
     }
 };
-

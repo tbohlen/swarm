@@ -386,6 +386,7 @@ function AttackParticle(pos, vel, color, team) {
     this.team = 0;
     this.target = null;
     this.connected = true;
+    this.attacking = false;
 }
 
 inherits(AttackParticle, ColorParticle);
@@ -482,10 +483,10 @@ PlayerSystem.prototype.doLogic = function(game) {
             var totRadius = other.radius + particle.radius;
             var totDistance = particle.state[0].distanceTo(other.state[0]);
 
-            // store all decently close particles for further computation
-            if (totDistance < ATTACK_DISTANCE) {
+            // store all particles for further computation
+            //if (totDistance < ATTACK_DISTANCE) {
                 sortedOthers.push([otherKey, totDistance]);
-            }
+            //}
 
             // check for collisions
             if (totDistance < totRadius) {
@@ -517,8 +518,30 @@ PlayerSystem.prototype.doLogic = function(game) {
         if (particle.target === null || typeof(particle.target) === 'undefined' || !(particle.target in this.others)) {
             for (i = 0; i < sortedOthers.length; i++) {
                 var enemy = sortedOthers[i][0];
-                if (enemy in this.others) {
+                var dist = sortedOthers[i][1];
+                var homeDist = particle.state[0].distanceTo(this.pos);
+
+                if (dist > ATTACK_DISTANCE && homeDist < dist){
+                    // if the particle is closer to its owner than anything to
+                    // attack, and nothing to attack is closer than the attack
+                    // distance, then rejoin the swarm
+                    particle.attacking = false;
+                    particle.connected = true;
+                    break;
+                }
+                else if (particle.attacking && enemy in this.others && this.others[enemy].attacking) {
+                    // if the particle is already in attack mode then attack any
+                    // available enemy who is also attacking
                     particle.target = enemy;
+                    particle.attacking = true;
+                    particle.connected = false;
+                    break;
+                }
+                else if (dist < ATTACK_DISTANCE && enemy in this.others) {
+                    // if an enemy is closer than the attack distance, then
+                    // start attacking it
+                    particle.target = enemy;
+                    particle.attacking = true;
                     particle.connected = false;
                     break;
                 }
@@ -610,8 +633,9 @@ PlayerSystem.prototype.evalDeriv = function(state) {
             }
             delayIncr = 1;
         }
-        // otherwise, propel the particle normally
-        else if (this.particles[key].connected){
+        // propel the particle normally if it has no target, is connected, and
+        // is close
+        else if (this.particles[key].connected && dist < ATTACH_DISTANCE){
             var angleToCenter = this.pos.angleWith(particle[0]);
             var angle = particle[1].angle();
 
@@ -630,6 +654,12 @@ PlayerSystem.prototype.evalDeriv = function(state) {
                 correction.setLength(Math.pow(dist / this.maxDist, this.correctionPower) * this.correctionForce);
                 newVel.addSelf(correction)
             }
+        }
+        // if the particle is far away but connected, propel it directly toward
+        // us
+        else if (this.particles[key].connected) {
+            newVel.sub(particle[0], this.pos);
+            newVel.setLength(-THRUSTERS);
         }
         else if (dist < CONNECT_DIST) {
             this.particles[key].connected = true;
