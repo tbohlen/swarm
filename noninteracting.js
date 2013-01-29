@@ -71,6 +71,26 @@ Noninteracting.prototype.draw = function(game) {
     }
 };
 
+/*
+ * Method: isDead
+ * Returns true if the noninteracting object should be removed from the game.
+ *
+ * Member Of: Noninteracting
+ */
+Noninteracting.prototype.isDead = function() {
+    return false;
+};
+
+/*
+ * Method: die
+ * Does nothing
+ *
+ * Member Of: Noninteracting
+ */
+Noninteracting.prototype.die = function() {
+    // do nothing
+};
+
 
 ///////////////////////////////////////////////////////////////////////////////
 //////////////////////////////// Flash Object /////////////////////////////////

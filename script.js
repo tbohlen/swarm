@@ -1,16 +1,28 @@
+/*
+ * Order of events:
+ *
+ * Cleanup of dead sprites
+ * Collisions
+ * Logic
+ */
 var drawLoopID;
 var logicLoopID;
 var LOGIC_LOOP_TIME = 5;
 var DRAW_LOOP_TIME = 1000/30;
-var PLAYER_VEL = 1.5;
+var PLAYER_VEL = 0.5;
 var LIFE_VELOCITY_BUFFER = 5;
-var STARTING_LIVES = 50;
+var STARTING_LIVES = 10;
+var RADIUS = 2
+var PLAYER_RADIUS = 7;
 var ATTACK_DISTANCE = 40;
-var ATTACK_THRUSTERS = 100;
+var ATTACK_THRUSTERS = 8;
 var THRUSTERS = 8;
+var MAX_SPEED = 5;
 var CONNECT_DIST = 100;
-var ATTACK_DELAY = 100;
+var ATTACK_DELAY = 20;
 var ATTACH_DISTANCE = 200;
+var TIME_STEP = 0.1;
+var COLLISION_EPSILON = 0.1;
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -30,38 +42,55 @@ function Game() {
     this.context = this.canvas[0].getContext("2d")
     this.width = this.canvas.width();
     this.height = this.canvas.height();
-    this.drawElements = {};
-    this.logicElements = {};
-    this.lastDrawIndex = -1;
-    this.lastLogicIndex = -1;
+    this.elements = {};
+    this.lastIndex = -1;
     this.drawFrame = 0;
     this.logicFrame = 0;
     this.noninteracting = new Noninteracting();
-    this.addSprite(this.noninteracting, true, true);
+    this.addSprite(this.noninteracting, false);
+    this.collidables = {};
+    this.lastCollideIndex = -1;
 }
 
 /*
  * Method: addSprite
- * Adds an object to the drawElements and logicElements, or just one of the two
- * lists.
+ * Adds an object to the elements list, and, if it is collidable, to the
+ * collidables list, too.
  *
  * Parameters:
  * sprite - the object to add to the lists
- * draw - true if should be added to drawElements
- * logic - true if should be added to logicElements
+ * collides - true if the sprite collides with other particles
  *
  * Member Of: Game
  */
-Game.prototype.addSprite = function(sprite, draw, logic) {
-    if (draw) {
-        this.lastDrawIndex++;
-        this.drawElements[this.lastDrawIndex] = sprite;
-        sprite.drawIndex = this.lastDrawIndex;
+Game.prototype.addSprite = function(sprite, collide) {
+    this.lastIndex++;
+    this.elements[this.lastIndex] = sprite;
+    sprite.gameIndex = this.lastIndex; 
+
+    if (collide) {
+        this.lastCollideIndex++;
+        this.collidables[this.lastCollideIndex] = sprite;
+        sprite.collideIndex = this.lastCollideIndex;
     }
-    if (logic) {
-        this.lastLogicIndex++;
-        this.logicElements[this.lastLogicIndex] = sprite;
-        sprite.logicIndex = this.lastLogicIndex;
+};
+
+/*
+ * Method: removeSprite
+ * removes the given sprite from the game
+ *
+ * Parameters:
+ * sprite - the object to remove from the game
+ *
+ * Member Of: Game
+ */
+Game.prototype.removeSprite = function(sprite) {
+    sprite.die();
+    if (sprite.collideIndex !== 'undefined' && typeof(sprite.collideIndex) !== null) {
+        delete this.collidables[sprite.collideIndex];
+    }
+    if (sprite.gameIndex !== 'undefined' && typeof(sprite.gameIndex) !== null) {
+        delete this.elements[sprite.gameIndex]
     }
 };
 
@@ -121,12 +150,13 @@ function Player(x, y, number, color, team) {
     this.unused = true;
     this.age = 0;
     this.pos = new THREE.Vector2(x, y);
+    this.vel = new THREE.Vector2(0, 0);
     this.drawIndex = -1;
     this.logicIndex = -1;
     this.color = color;
     this.team = team
     this.system = new PlayerSystem(this.pos, number, color, this.team);
-    this.radius = 10;
+    this.radius = PLAYER_RADIUS;
 }
 
 /*
@@ -139,8 +169,8 @@ function Player(x, y, number, color, team) {
  * Member Of: Player
  */
 Player.prototype.show = function(game) {
-    game.addSprite(this, true, true);
-    game.addSprite(this.system, true, true);
+    game.addSprite(this, false);
+    game.addSprite(this.system, false);
 };
 
 /*
@@ -187,6 +217,42 @@ Player.prototype.doLogic = function(game) {
     this.pos.y += dir.y;
     this.pos.x += dir.x;
 };
+
+/*
+ * Method: isDead
+ * Returns true if this particle is dead and can be removed from the game.
+ *
+ * Member Of: Player
+ */
+Player.prototype.isDead = function() {
+    return false;
+};
+
+/*
+ * Method: die
+ * Does nothing.
+ *
+ * Member Of: Player
+ */
+Player.prototype.die = function() {
+    // do nothing
+};
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////// Main Drawing Loop ///////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+
+/*
+ * Constructor: target
+ * A location on the map that the particles are attracted to and can have some
+ * effect on the particles.
+ */
+function target(x, y) {
+    // body
+}
 
 
 
@@ -240,9 +306,9 @@ function drawLoop(game) {
     clearScreen(game, "rgb(0, 0, 0)");
 
     // draw all drawElements or kill them if they are dead
-    for (var key in game.drawElements) {
-        if (game.drawElements.hasOwnProperty(key)) {
-            var element = game.drawElements[key];
+    for (var key in game.elements) {
+        if (game.elements.hasOwnProperty(key)) {
+            var element = game.elements[key];
             element.draw(game);
         }
     }
@@ -254,13 +320,60 @@ function drawLoop(game) {
  */
 function logicLoop(game) {
     var i;
+    var key;
     // update all important variables
     logicUpdate(game);
 
+    // check to see if any sprites are dead and if the are, remove them
+    for (key in game.elements) {
+        var elem = game.elements[key];
+        if (elem.isDead()) {
+            game.removeSprite(elem)
+        }
+    }
+
+    // run all collision detections
+    var collidables = [];
+    for (var key in game.collidables) {
+        if (game.collidables.hasOwnProperty(key)) {
+            // clear the distances stored in the particle
+            game.collidables[key].distances = [];
+        }
+    }
+    for (var key in game.collidables) {
+        if (game.collidables.hasOwnProperty(key)) {
+            var one = game.collidables[key];
+            // test it against all already in collidables
+            for (i = 0; i < collidables.length; i++) {
+                var two = collidables[i];
+                var totRadius = two.radius + one.radius;
+                var totDistance = one.pos.distanceTo(two.pos);
+
+                two.distances.push([one.collideIndex, totDistance]);
+                one.distances.push([two.collideIndex, totDistance]);
+
+                // check for collisions
+                if (totDistance < totRadius + COLLISION_EPSILON) {
+                    // run the resolve collision function on the two ones
+                    resolveCollision(one, two)
+                    // run custom resolutions
+                    if (one.team !== two.team) {
+                        one.lives--;
+                        two.lives--;
+                    }
+                }
+            }
+
+            // append it to the collidables list so that future collisions tests
+            // include it
+            collidables.push(one);
+        }
+    }
+
     // run all logicElements
-    for (var key in game.logicElements) {
-        if (game.logicElements.hasOwnProperty(key)) {
-            game.logicElements[key].doLogic(game);
+    for (var key in game.elements) {
+        if (game.elements.hasOwnProperty(key)) {
+            game.elements[key].doLogic(game);
         }
     }
 }
@@ -285,8 +398,8 @@ $(document).ready(function() {
         game.resize();
 
         // create the players
-        game.playerOne = new Player(400, 200, 100, [100, 100, 255], 1);
-        game.playerTwo = new Player(1000, 200, 100, [80, 255, 80], 2);
+        game.playerOne = new Player(400, 200, 50, [100, 100, 255], 1);
+        game.playerTwo = new Player(1000, 200, 50, [80, 255, 80], 2);
 
         // give each system a reference to the other
         game.playerOne.system.others = game.playerTwo.system.particles;

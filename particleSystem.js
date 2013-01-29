@@ -183,7 +183,8 @@ ParticleSystem.prototype.getState = function() {
     var state = {};
     var key;
     for (key in this.particles) {
-        state[key] = this.particles[key].state;
+        var part = this.particles[key];
+        state[key] = [part.pos, part.vel, part.age, part.attackDelay];
     }
     return state;
 };
@@ -201,7 +202,12 @@ ParticleSystem.prototype.getState = function() {
 ParticleSystem.prototype.setState = function(newState) {
     var key;
     for (key in this.particles) {
-        this.particles[key].state = newState[key];
+        var part = this.particles[key];
+        var state = newState[key];
+        part.pos = state[0];
+        part.vel = state[1];
+        part.age = state[2];
+        part.attackDelay = state[3];
     }
 };
 
@@ -257,139 +263,17 @@ ParticleSystem.prototype.isDead = function() {
 };
 
 
-
-///////////////////////////////////////////////////////////////////////////////
-/////////////////////// Basic Particles (and sprite) //////////////////////////
-///////////////////////////////////////////////////////////////////////////////
-
-
-
 /*
- * Constructor: Particle
- * Builds a new generic particle.
+ * Method: die
+ * Does nothing
  *
- * The particle must include all information the derivative evaluator in the
- * associated particle system might want in its state variable.
- *
- * Because there may be many of these particles, you most likely want to contain
- * any shared values in the prototype.
+ * Member Of: ParticleSystem
  */
-function Particle(pos, vel) {
-    this.state = [pos, vel, 0, 0];
-    this.maxAge = 10;
-}
-
-/*
- * Method: radius
- * Returns the radius of the particle
- *
- * Member Of: Particle
- */
-Particle.prototype.radius = 4;
-
-/*
- * Method: draw
- * Draws the particle.
- *
- * Parameters:
- * game - the game object.
- *
- * Member Of: Particle
- */
-Particle.prototype.draw = function(game) {
-    var scaleNum = 1.0 - (this.state[2]/this.maxAge);
-    var color = scale([255.0, 255.0, 255.0], scaleNum);
-    var radius = this.radius/scaleNum;
-    game.context.fillStyle = "rgb(" + Math.floor(color[0]).toString() + ", " + Math.floor(color[1]).toString() + ", " + Math.floor(color[2]).toString() + ")";
-    drawCircle(this.state[0], this.radius, game.context);
-    game.context.fill();
-};
-
-/*
- * Method: isDead
- * Returns true if the particle is dead and false otherwise. Dead particles are
- * removed and never shown again. This particles dies if it is moved off screen
- * or older than its maxAge attribute.
- *
- * Member Of: Particle
- */
-Particle.prototype.isDead = function(system) {
-    return false;
+ParticleSystem.prototype.die = function() {
+    // do nothing
 };
 
 
-
-///////////////////////////////////////////////////////////////////////////////
-////////////////////////////// ColorParticles /////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
-
-
-
-/*
- * Constructor: ColorParticle
- * Builds a new color particle. It is essentially identical to the basic
- * particle, but it has a controllable color/
- */
-function ColorParticle(pos, vel, color) {
-    Particle.call(this, pos, vel);
-    this.state = [pos, vel, 0, 0];
-    this.color = color;
-    this.lives = STARTING_LIVES;
-    this.radius = 4;
-}
-
-inherits(ColorParticle, Particle);
-
-/*
- * Method: draw
- * Draws the particle.
- *
- * Parameters:
- * game - the game object.
- *
- * Member Of: Particle
- */
-ColorParticle.prototype.draw = function(game) {
-    var color = this.color;
-    var radius = this.radius;
-    game.context.fillStyle = getColorString(color);
-    drawCircle(this.state[0], this.radius, game.context);
-    game.context.fill();
-};
-
-/*
- * Method: isDead
- * Returns true if out of "life"
- *
- * Member Of: ColorParticle
- */
-ColorParticle.prototype.isDead = function() {
-    return this.lives <= 0;
-};
-
-
-
-///////////////////////////////////////////////////////////////////////////////
-////////////////////////////// Attach Particles ///////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
-
-
-/*
- * Constructor: AttackParticle
- * Constructs an attack particle, which will function differently when near an
- * "enemy" object
- *
- * An enemy is any object that has a different value of team
- */
-function AttackParticle(pos, vel, color, team) {
-    ColorParticle.call(this, pos, vel, color);
-    this.team = 0;
-    this.target = null;
-    this.connected = true;
-    this.attacking = false;
-}
-
-inherits(AttackParticle, ColorParticle);
 
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////// Player Particles System ///////////////////////////
@@ -407,7 +291,7 @@ function PlayerSystem(pos, number, color, team) {
     this.others = {}; // the other particles. aka the enemy
     this.team = team
 
-    this.maxDist = 60;
+    this.maxDist = 50;
     this.minDist = 30;
     this.randomization = 30000.0;
     this.correctionForce = 2;
@@ -460,101 +344,12 @@ PlayerSystem.prototype.replenishParticles = function() {
  * Member Of: PlayerSystem
  */
 PlayerSystem.prototype.doLogic = function(game) {
-    var key;
-    var otherKey;
-    for (key in this.particles) {
-        var particle = this.particles[key];
-        // check particle death
-        if (particle.isDead()) {
-            // show a little flash if the particle died
-            var flashColor = [0, 0, 0, 0.8];
-            flashColor[0] = particle.color[0];
-            flashColor[1] = particle.color[1];
-            flashColor[2] = particle.color[2];
-
-            game.noninteracting.addFlash(particle.state[0], flashColor);
-            delete this.particles[key];
-        }
-
-        // check for collisions and closeness to enemy
-        var sortedOthers = [];
-        for (otherKey in this.others) {
-            var other = this.others[otherKey];
-            var totRadius = other.radius + particle.radius;
-            var totDistance = particle.state[0].distanceTo(other.state[0]);
-
-            // store all particles for further computation
-            //if (totDistance < ATTACK_DISTANCE) {
-                sortedOthers.push([otherKey, totDistance]);
-            //}
-
-            // check for collisions
-            if (totDistance < totRadius) {
-                // run the resolve collision function on the two particles
-                resolveCollision(particle, other)
-                // subtract lives appropriately
-                other.lives--;
-                particle.lives--;
-                particle.state[3] = 0;
-            }
-        }
-
-        // sort the other particles by distance
-        sortedOthers.sort(function(a, b) {
-            return a[1] - b[1];
-        });
-
-        var i;
-        // if the particle is already targeting someone, check if it is
-        // still alive
-        if (particle.target !== null && typeof(particle.target) !== 'undefined') {
-            if (!(particle.target in this.others)) {
-                particle.target = null;
-            }
-        }
-
-        // if after checking the target, the particle does not have a target,
-        // find a new one
-        if (particle.target === null || typeof(particle.target) === 'undefined' || !(particle.target in this.others)) {
-            for (i = 0; i < sortedOthers.length; i++) {
-                var enemy = sortedOthers[i][0];
-                var dist = sortedOthers[i][1];
-                var homeDist = particle.state[0].distanceTo(this.pos);
-
-                if (dist > ATTACK_DISTANCE && homeDist < dist){
-                    // if the particle is closer to its owner than anything to
-                    // attack, and nothing to attack is closer than the attack
-                    // distance, then rejoin the swarm
-                    particle.attacking = false;
-                    particle.connected = true;
-                    break;
-                }
-                else if (particle.attacking && enemy in this.others && this.others[enemy].attacking) {
-                    // if the particle is already in attack mode then attack any
-                    // available enemy who is also attacking
-                    particle.target = enemy;
-                    particle.attacking = true;
-                    particle.connected = false;
-                    break;
-                }
-                else if (dist < ATTACK_DISTANCE && enemy in this.others) {
-                    // if an enemy is closer than the attack distance, then
-                    // start attacking it
-                    particle.target = enemy;
-                    particle.attacking = true;
-                    particle.connected = false;
-                    break;
-                }
-            }
-        }
-    }
-
     // add new particles
     this.replenishParticles();
 
     // step forward the system
-    trapezoidalStep(this, 0.1);
-    this.age++;
+    trapezoidalStep(this, TIME_STEP);
+    this.age += TIME_STEP;
 };
 
 /*
@@ -569,31 +364,40 @@ PlayerSystem.prototype.doLogic = function(game) {
  * Member Of: PlayerSystem
  */
 PlayerSystem.prototype.addParticles = function(numNew) {
+    var self = this;
     for (i = 0; i < numNew; i++) {
-        var angle = boundedRand(0, Math.PI * 2);
+        var makeOne = function() {
+            var angle = boundedRand(0, Math.PI * 2);
 
-        // place the particle a random distance away from the center at this
-        // angle
-        var dist = boundedRand(this.minDist, this.maxDist);
-        var x = Math.cos(angle) * dist;
-        var y = Math.sin(angle) * dist;
+            // place the particle a random distance away from the center at this
+            // angle
+            var dist = boundedRand(self.minDist, self.maxDist);
+            var x = Math.cos(angle) * dist;
+            var y = Math.sin(angle) * dist;
 
-        var vel = new THREE.Vector2(0, 0)
-        var pos = new THREE.Vector2(this.pos.x + x, this.pos.y + y)
+            var vel = new THREE.Vector2(0, 0)
+            var pos = new THREE.Vector2(self.pos.x + x, self.pos.y + y)
 
-        // add the particle
-        var particle = new AttackParticle(pos, vel, this.color, this.team);
-        particle.maxAge = this.maxParticleAge;
-        this.lastIndex++;
-        this.particles[this.lastIndex] = particle;
+            // add the particle
+            var particle = new AttackParticle(pos, vel, self.color, self);
+            particle.maxAge = self.maxParticleAge;
+            self.lastIndex++;
+            particle.key = self.lastIndex;
+            self.particles[self.lastIndex] = particle;
 
-        // show a little flash
-        var flashColor = [0, 0, 0, 0.8];
-        flashColor[0] = particle.color[0];
-        flashColor[1] = particle.color[1];
-        flashColor[2] = particle.color[2];
-        game.noninteracting.addFlash(particle.state[0], flashColor, "fast");
+            window.game.addSprite(particle, true);
 
+            // show a little flash
+            var flashColor = [0, 0, 0, 0.8];
+            flashColor[0] = particle.color[0];
+            flashColor[1] = particle.color[1];
+            flashColor[2] = particle.color[2];
+            window.game.noninteracting.addFlash(particle.pos, flashColor, "fast");
+        }
+
+        // XXX: running these consecutively is a cheat to prevent them from having
+        // collision resolution issues
+        window.setTimeout(makeOne, i * 10);
     }
 };
 
@@ -618,60 +422,8 @@ PlayerSystem.prototype.evalDeriv = function(state) {
     var key;
     var deriv = {};
     for (key in state) {
-        var particle = state[key];
-        var newVel = new THREE.Vector2(0, 0);
-        var target = this.particles[key].target;
-        var delayIncr = 0;
-        var dist = this.pos.distanceTo(particle[0]);
-        
-        // if the particle has a target, attack it
-        if (target !== null && typeof(target) !== 'undefined') {
-            if (particle[3] > ATTACK_DELAY) {
-                newVel.sub(particle[0], this.others[target].state[0]);
-                var attackDist = particle[0].distanceTo(this.others[target].state[0])
-                newVel.setLength(-1 * ATTACK_THRUSTERS / Math.pow(attackDist, 0.5));
-            }
-            delayIncr = 1;
-        }
-        // propel the particle normally if it has no target, is connected, and
-        // is close
-        else if (this.particles[key].connected && dist < ATTACH_DISTANCE){
-            var angleToCenter = this.pos.angleWith(particle[0]);
-            var angle = particle[1].angle();
-
-            // randomize the angle
-            angle = angle + boundedRand(-1 * this.randomization, this.randomization);
-            
-            var sine = Math.sin(angle);
-            var cosine = Math.cos(angle);
-            newVel = new THREE.Vector2(cosine, sine);
-
-            newVel.setLength(THRUSTERS);
-
-            // additional correcting force
-            if (dist > this.maxDist) {
-                var correction = new THREE.Vector2(Math.cos(angleToCenter), Math.sin(angleToCenter));
-                correction.setLength(Math.pow(dist / this.maxDist, this.correctionPower) * this.correctionForce);
-                newVel.addSelf(correction)
-            }
-        }
-        // if the particle is far away but connected, propel it directly toward
-        // us
-        else if (this.particles[key].connected) {
-            newVel.sub(particle[0], this.pos);
-            newVel.setLength(-THRUSTERS);
-        }
-        else if (dist < CONNECT_DIST) {
-            this.particles[key].connected = true;
-        }
-
-        // damp a tiny bit just to make sure we don't explode too quickly
-        var damping = particle[1].clone();
-        var vel = damping.length()
-        damping.setLength(-1 * this.damping * vel * dist / (this.maxParticleVel * this.maxDist));
-
-        newVel.addSelf(damping);
-        deriv[key] = [particle[1], newVel, 1, delayIncr];
+        var particle = this.particles[key];
+        deriv[key] = particle.evalDeriv(state[key]);
     }
     return deriv;
 };
@@ -687,7 +439,7 @@ PlayerSystem.prototype.evalDeriv = function(state) {
 
 function collides(one, two) {
     var totRadius = two.radius + one.radius;
-    var totDistance = one.state[0].distanceTo(two.state[0]);
+    var totDistance = one.pos.distanceTo(two.pos);
     return totRadius > totDistance;
 };
 
@@ -698,12 +450,12 @@ function collides(one, two) {
  * unknown behavior (probably nothing bad)
  */
 function resolveCollision(one, two) {
-    var totRadius = one.radius + two.radius;
-    var centersVec = one.state[0].clone();
-    centersVec.subSelf(two.state[0]);
+    var totRadius = one.radius + two.radius + COLLISION_EPSILON;
+    var centersVec = one.pos.clone();
+    centersVec.subSelf(two.pos);
     var totDistance = centersVec.length();
-    var totVel = one.state[1].clone();
-    totVel.addSelf(two.state[1]);
+    var totVel = one.vel.clone();
+    totVel.addSelf(two.vel);
     var totVelMag = totVel.length();
     // this is the normal pointing from one to two
     var normal = centersVec.clone()
@@ -711,24 +463,24 @@ function resolveCollision(one, two) {
     var rewindTime = Math.abs( (totRadius-totDistance) / totVelMag );
 
     // recompute for one
-    var newPosOne = new THREE.Vector2(one.state[0].x - rewindTime * one.state[1].x, one.state[0].y - rewindTime * one.state[1].y);
-    var newVelOne = one.state[1].clone();
+    var newVelOne = one.vel.clone();
     var scaledNormalOne = normal.clone();
-    scaledNormalOne.setLength(-2 * newVelOne.dot(normal));
+    scaledNormalOne.setLength(-2.0 * newVelOne.dot(normal));
     newVelOne.addSelf(scaledNormalOne)
-    var oneState = [newPosOne, newVelOne, one.state[2], one.state[3]];
+    var newPosOne = new THREE.Vector2(one.pos.x + rewindTime * (newVelOne.x - one.vel.x), one.pos.y + rewindTime * (newVelOne.y - one.vel.y));
 
     // recompute for two
-    var newPosTwo = new THREE.Vector2(two.state[0].x - rewindTime * two.state[1].x, two.state[0].y - rewindTime * two.state[1].y);
-    var newVelTwo = two.state[1].clone();
+    var newVelTwo = two.vel.clone();
     var scaledNormalTwo = normal.clone();
-    scaledNormalTwo.setLength(-2 * newVelTwo.dot(normal));
+    scaledNormalTwo.setLength(-2.0 * newVelTwo.dot(normal));
     newVelTwo.addSelf(scaledNormalTwo)
-    var twoState = [newPosTwo, newVelTwo, two.state[2], two.state[3]];
+    var newPosTwo = new THREE.Vector2(two.pos.x + rewindTime * (newVelTwo.x - two.vel.x), two.pos.y + rewindTime * (newVelTwo.y - two.vel.y));
 
     // set the new states
-    one.state = oneState;
-    two.state = twoState;
+    one.pos = newPosOne;
+    one.vel = newVelOne;
+    two.pos = newPosTwo;
+    two.vel = newVelTwo;
 
     // let the caller know the two objects collided
     return true;
